@@ -1,107 +1,156 @@
 <?php
+	
+	include_once 'config/db.php';
 
-include_once 'config/db.php';
+	class SQL {
+		
+		private static $instance;
+		private $db;
+		
+		public static function Instance() {
+			
+			if (self::$instance == null) {
+				self::$instance = new SQL();
+			}
 
-class SQL
-{
-
-	private static $instance;
-	private $db;
-
-	public static function Instance()
-	{
-
-		if (self::$instance == null) {
-			self::$instance = new SQL();
+			return self::$instance;
 		}
-
-		return self::$instance;
-	}
-
-	public function __construct()
-	{
-
-		//setlocale(LC_ALL, 'ru_RU.UTF8');
-		$this->db = new PDO(
-			DRIVER . ':host=' . SERVER . ';dbname=' . DB,
-			USERNAME,
-			PASSWORD,
-			[
-				PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-				PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-			]
-		);
-	}
-
-	public function Query($query, $param = array(), $fetchAll = true)
-	{
-		$res = $this->db->prepare($query);
-		$res->execute($param);
-
-		if ($fetchAll) {
-			return $res->fetchAll();
-		} else {
-			return $res->fetch();
+		
+		public function __construct() {
+			
+			$this->db = new PDO(DRIVER . ':host='. SERVER . ';dbname=' . DB, USERNAME, PASSWORD);
+			$this->db->exec('SET NAMES UTF8');
+			$this->db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 		}
-	}
-	//"SELECT order_id, product_id, count, title, price FROM basket AS T1 INNER JOIN products AS T2 ON T1.product_id = T2.id WHERE T1.user_id = " . $_SESSION["user_id"]
+		
+		public function Select($table, $where_key = false, $where_value = false, $fetchAll = false) {
 
-	public function Insert($query, $param = array())
-	{
+			if ($where_key AND $where_value) {
+				$query = "SELECT * FROM " . $table . " WHERE " . $where_key . " = '" . $where_value . "'";
+			} else {
+				$query = "SELECT * FROM " . $table;
+			}
 
-		$res = $this->db->prepare($query);
-		$res->execute($param);
+			$q = $this->db->prepare($query);
+			$q->execute();
+			
+			if ($q->errorCode() != PDO::ERR_NONE) {
+				$info = $q->errorInfo();
+				die($info[2]);
+			}
 
-		return $this->db->lastInsertId();
-	}
-
-	public function Update($table, $object, $where)
-	{
-
-		$sets = array();
-
-		foreach ($object as $key => $value) {
-
-			$sets[] = "$key=:$key";
-
-			if ($value === NULL) {
-				$object[$key] = 'NULL';
+			if ($fetchAll) {
+				return $q->fetchAll();
+			} else if ($where_key AND $where_value) {
+				return $q->fetch();
+			} else {
+				return $q->fetchAll();
 			}
 		}
 
-		$sets_s = implode(',', $sets);
-		$query = "UPDATE $table SET $sets_s WHERE $where";
+        public function SelectJoin($table1, $table2, $t1key, $t2key, $par1 = false, $par2 = false) {
 
-		$res = $this->db->prepare($query);
-		$res->execute($object);
+		    $query = "SELECT * FROM " . $table1 . " AS T1 INNER JOIN " . $table2 . " AS T2 ON T1. " . $t1key . " = T2. " . $t2key . " WHERE T1. " . $par1 . " = " . $par2;
 
-		if ($res->errorCode() != PDO::ERR_NONE) {
-			$info = $res->errorInfo();
-			die($info[2]);
+            $q = $this->db->prepare($query);
+            $q->execute();
+
+            if ($q->errorCode() != PDO::ERR_NONE) {
+                $info = $q->errorInfo();
+                die($info[2]);
+            }
+            return $q->fetchAll();
+        }
+		//"SELECT order_id, product_id, count, title, price FROM basket AS T1 INNER JOIN products AS T2 ON T1.product_id = T2.id WHERE T1.user_id = " . $_SESSION["user_id"]
+		
+		public function Insert($table, $object) {
+			
+			$columns = array();
+			
+			foreach ($object as $key => $value) {
+			
+				$columns[] = $key;
+				$masks[] = ":$key";
+				
+				if ($value === null) {
+					$object[$key] = 'NULL';
+				}
+			}
+			
+			$columns_s = implode(',', $columns);
+			$masks_s = implode(',', $masks);
+			
+			$query = "INSERT INTO $table ($columns_s) VALUES ($masks_s)";
+			
+			$q = $this->db->prepare($query);
+			$q->execute($object);
+			
+			if ($q->errorCode() != PDO::ERR_NONE) {
+				$info = $q->errorInfo();
+				die($info[2]);
+			}
+			
+			return $this->db->lastInsertId();
+		}
+		
+		public function Update($table, $object, $where) {
+			
+			$sets = array();
+			 
+			foreach ($object as $key => $value) {
+				
+				$sets[] = "$key=:$key";
+				
+				if ($value === NULL) {
+					$object[$key]='NULL';
+				}
+			 }
+			 
+			$sets_s = implode(',',$sets);
+			$query = "UPDATE $table SET $sets_s WHERE $where";
+
+			$q = $this->db->prepare($query);
+			$q->execute($object);
+
+			if ($q->errorCode() != PDO::ERR_NONE) {
+				$info = $q->errorInfo();
+				die($info[2]);
+			}
+			
+			return $q->rowCount();
+		}
+		
+		
+		public function Delete($table, $where) {
+			
+			$query = "DELETE FROM $table WHERE $where";
+			$q = $this->db->prepare($query);
+			$q->execute();
+			
+			if ($q->errorCode() != PDO::ERR_NONE) {
+				$info = $q->errorInfo();
+				die($info[2]);
+			}
+			
+			return $q->rowCount();
 		}
 
-		return $res->rowCount();
-	}
+        public function Remove($table, $where) {
 
+            $query = "DELETE FROM $table WHERE order_id = $where";
+            $q = $this->db->prepare($query);
+            $q->execute();
 
-	public function Delete($table, $where)
-	{
+            if ($q->errorCode() != PDO::ERR_NONE) {
+                $info = $q->errorInfo();
+                die($info[2]);
+            }
 
-		$query = "DELETE FROM $table WHERE $where";
-		$res = $this->db->prepare($query);
-		$res->execute();
+            return $q->rowCount();
+        }
 
-		if ($res->errorCode() != PDO::ERR_NONE) {
-			$info = $res->errorInfo();
-			die($info[2]);
+		public function Password ($name, $password) {
+			
+			return strrev(md5($name)) . md5($password);
 		}
-
-		return $res->rowCount();
 	}
-
-	public function Password($name, $password)
-	{
-
-		return strrev(md5($name)) . md5($password);
-	}
-}

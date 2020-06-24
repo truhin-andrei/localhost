@@ -6,14 +6,14 @@
 		};
 	}
 </script>
-<div class="product">
-	<h1><span><?= $product["name"] ?></span></h1>
-	<img src="../img/1.jpg" height="300" alt="Good" title="<?= $product["name"] ?>" target="_blank">
-	<p class="content"><?= $product["description"] ?></p>
+<div class="product__full">
+	<h1><span><?= $product["title"] ?></span></h1>
+	<img class="img__full" src="/<?= $product["image"] ?>" alt="Изображение" title="<?= $product["title"] ?>" target="_blank">
+	<span class="content"><?= $product["content"] ?></span>
 	<h3><?= $product["price"] ?> $</h3>
 	<?php
-	if ($user_id) {
-		echo "<button id='buy'>Купить</button>
+		if ($user_id) {
+			echo "<button id='buy'>Купить</button>
 			<div id='buying_form'>
 				<span>Какое количество товара?</span>
 				<form method='post' name='buying_form'>
@@ -21,9 +21,7 @@
 					<input type='submit' name='button' value='Добавить в корзину'>
 				</form>
 			</div>";
-	}
+		}
 	?>
 </div>
-<?php if (isset($text)) {
-	echo "<script>alert('$text')</script>";
-} ?>
+<?php if(isset($text)){echo "<script>alert('$text')</script>";}?>
